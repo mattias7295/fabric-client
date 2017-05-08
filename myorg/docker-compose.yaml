@@ -1,0 +1,49 @@
+version: '2'
+
+services:
+  ca:
+    container_name: ca
+    image: hyperledger/fabric-ca
+    environment:
+      - FABRIC_CA_HOME=/var/hyperledger/fabric-ca-server
+    ports:
+      - "7054:7054"
+    command: sh -c 'fabric-ca-server start --ca.certfile /var/hyperledger/fabric-ca-server-config/peerOrg1-cert.pem --ca.keyfile
+    /var/hyperledger/fabric-ca-server-config/267da8fb0b04f06e62b0d97ed82fb692c668640227947192f26955390ce72b53_sk -b admin:adminpw -d'
+    volumes:
+      - ./crypto-config/peerOrganizations/peerOrg1/ca/:/var/hyperledger/fabric-ca-server-config
+
+  orderer:
+    container_name: orderer
+    image: hyperledger/fabric-orderer
+    environment:
+      - ORDERER_GENERAL_LOGLEVEL=INFO
+      - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+      - ORDERER_GENERAL_LOCALMSPDIR=/var/hyperledger/msp/orderer
+      - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/orderer
+    command: orderer
+    volumes:
+    - ./channel:/var/hyperledger/configtx
+    - ./crypto-config/ordererOrganizations/ordererOrg1/orderers/ordererOrg1orderer1/:/var/hyperledger/msp/orderer
+    ports:
+      - 7050:7050
+
+  peer1:
+    container_name: peer1
+    extends:
+        file: peer-base/peer-base.yaml
+        service: peer-base
+    cpuset: "1" # specify which core to use
+    environment:
+      - CORE_PEER_ID=peer1
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer1:7051
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer1:7051
+    volumes:
+        - /var/run/:/host/var/run/
+        - ./crypto-config/peerOrganizations/peerOrg1/peers/peerOrg1Peer1/:/var/hyperledger/msp/peer
+    ports:
+      - 7051:7051
+      - 7053:7053
+    depends_on:
+      - orderer
